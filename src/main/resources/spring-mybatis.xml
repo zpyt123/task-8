@@ -1,0 +1,194 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:mvc="http://www.springframework.org/schema/mvc"
+       xmlns:context="http://www.springframework.org/schema/context"
+       xmlns:p="http://www.springframework.org/schema/p"
+
+       xsi:schemaLocation="http://www.springframework.org/schema/beans
+
+       http://www.springframework.org/schema/beans/spring-beans-3.0.xsd
+       http://www.springframework.org/schema/context
+       http://www.springframework.org/schema/context/spring-context-3.0.xsd
+
+       http://www.springframework.org/schema/mvc
+       http://www.springframework.org/schema/mvc/spring-mvc-3.0.xsd">
+    <context:annotation-config/>
+    <context:component-scan base-package="com.jnshu.service.impl"/>
+    <context:property-placeholder location="classpath:memcached.properties" ignore-unresolvable="true"/>
+    <!--<context:property-placeholder location="classpath:db.properties" ignore-unresolvable="true"/>-->
+    <context:property-placeholder location="classpath:redis.properties" ignore-unresolvable="true"/>
+    <!-- S Redis 配置-->
+    <!-- scanner redis properties  -->
+    <!--<import resource="memcached.xml"/>-->
+    <!--<import resource="redis.xml"/>-->
+    <mvc:annotation-driven/>
+    <bean id="propertyConfigurer" class="org.springframework.beans.factory.config.PreferencesPlaceholderConfigurer">
+        <property name="location" value="classpath:db.properties"/>
+    </bean>
+    <bean id="dataSource" class="org.springframework.jdbc.datasource.DriverManagerDataSource">
+        <property name="driverClassName" value="${driver}"/>
+        <property name="url" value="${url}"/>
+        <property name="username" value="${db_username}"/>
+        <property name="password" value="${db_password}"/>
+    </bean>
+    <!--  7. 配置MyBatis客户端  -->
+    <bean id="sqlSessionFactory" class="org.mybatis.spring.SqlSessionFactoryBean">
+        <property name="dataSource" ref="dataSource"/>
+        <property name="configLocation" value="classpath:mybatis-config.xml"/>
+        <property name="mapperLocations">
+            <value>classpath:com/jnshu/dao/*.xml</value>
+        </property>
+    </bean>
+    <bean class="org.mybatis.spring.mapper.MapperScannerConfigurer">
+        <property name="sqlSessionFactoryBeanName" value="sqlSessionFactory"/>
+        <property name="basePackage" value="com.jnshu.dao"/>
+    </bean>
+    <!--事物管理-->
+    <bean id="transactionManager" class="org.springframework.jdbc.datasource.DataSourceTransactionManager">
+        <property name="dataSource" ref="dataSource"/>
+    </bean>
+
+    <!--Memcached配置-->
+    <!--<bean class="org.springframework.beans.factory.config.PreferencesPlaceholderConfigurer">-->
+    <!--</bean>-->
+    <!--
+       枚举类型要想注入到类中，一定要先使用org.springframework.beans.factory.config.FieldRetrievingFactoryBean类将枚举类型进行转换
+       将DefaultHashAlgorithm.KETAMA_HASH转换为KETAMA_HASH这个bean，
+       然后在要注入的bean中使用<property name="hashAlg" ref="KETAMA_HASH" />引用即可。-->
+    <bean id="memCachedPool" class="com.whalin.MemCached.SockIOPool"  factory-method="getInstance" init-method="initialize" destroy-method="shutDown">
+        <property name="servers" value="127.0.0.1:11211"/>
+        <property name="initConn" value="${memcached.initConn}"/>
+        <property name="maxIdle" value="${memcached.maxConn}"/>
+        <property name="minConn" value="${memcached.minConn}"/>
+        <property name="maintSleep" value="${memcached.mainSleep}"/>
+        <property name="nagle" value="${memcached.nagle}"/>
+        <property name="socketTO" value="${memcached.socketTO}"/>
+    </bean>
+    <!--<bean id="memcachedPool" class="com.whalin.MemCached.SockIOPool" factory-method="getInstance"init-method="initialize"-->
+    <!--destroy-method="shutDown"/>-->
+    <!--（1）如果你有多个数据源需要通过
+   <context:property-placeholder管理，且不愿意放在一个配置文件里，
+   那么一定要加上ignore-unresolvable=“true"(每一个都需要加这个属性)-->
+    <!--（2）注意新版的（从3.0版本开始弃用）JedisPoolConfig的property name，
+    不是maxActive而是maxTotal，而且没有maxWait属性，建议看一下Jedis源码。-->
+    <!-- redis连接池 -->
+    <bean id="jedisPoolConfig" class="redis.clients.jedis.JedisPoolConfig" >
+        <property name="maxTotal" value="${redis.maxActive}"></property>
+        <property name="maxIdle" value="${redis.maxIdle}"></property>
+        <property name="maxWaitMillis" value="${redis.maxWait}"></property>
+        <property name="testOnBorrow" value="${redis.testOnBorrow}"></property>
+        <property name="testOnReturn" value="${redis.testOnReturn}"></property>
+        <property name="blockWhenExhausted" value="${redis.blockWhenExhausted}"></property>
+        <property name="testWhileIdle" value="${redis.testWhileIdle}"></property>
+        <property name="timeBetweenEvictionRunsMillis" value="${redis.timeBetweenEvictionRunsMillis}"></property>
+        <property name="minEvictableIdleTimeMillis" value="${redis.minEvictableIdleTimeMillis}"></property>
+        <property name="softMinEvictableIdleTimeMillis" value="${redis.softMinEvictableIdleTimeMillis}"></property>
+    </bean>
+    <!-- redis连接工厂 -->
+    <bean id="connectionFactory" class="org.springframework.data.redis.connection.jedis.JedisConnectionFactory">
+        <property name="poolConfig" ref="jedisPoolConfig"/>
+        <property name="port" value="${redis.port}"/>
+        <property name="hostName" value="${redis.host}"/>
+        <property name="password" value="${redis.password}"/>
+        <property name="timeout" value="${redis.timeout}"/>
+    </bean>
+    <!-- redis操作模板，这里采用尽量面向对象的模板 -->
+    <!--<bean id="redisTemplate" class="org.springframework.data.redis.core.RedisTemplate">
+        使用上句会无法使用模糊匹配
+    -->
+    <!--
+      p:enable-transaction-support="false"
+      设置setEnableTransactionSupport(true)，当前线程会强制先 MULTI命令
+   -->
+    <bean id="redisTemplate" class="org.springframework.data.redis.core.StringRedisTemplate"
+          p:enable-transaction-support="true">
+        <property name="connectionFactory" ref="connectionFactory"/>
+        <!-- 如果不配置Serializer，那么存储的时候只能使用String，如果用对象类型存储，那么会提示错误 can't cast to String！！！-->
+        <property name="keySerializer">
+            <!--对key的默认序列化器。默认值是StringSerializer-->
+            <bean class="org.springframework.data.redis.serializer.StringRedisSerializer"/>
+        </property>
+        <!--是对value的默认序列化器，默认值是取自DefaultSerializer的JdkSerializationRedisSerializer。-->
+        <property name="valueSerializer">
+            <bean class="org.springframework.data.redis.serializer.JdkSerializationRedisSerializer"/>
+        </property>
+        <!--存储Map时key需要的序列化配置-->
+        <property name="hashKeySerializer">
+            <bean class="org.springframework.data.redis.serializer.StringRedisSerializer"/>
+        </property>
+        <!--存储Map时value需要的序列化配置-->
+        <property name="hashValueSerializer">
+            <bean class="org.springframework.data.redis.serializer.JdkSerializationRedisSerializer"/>
+        </property>
+        <!--开启事务
+        系统自动帮我们拿到了事务中绑定的连接。可以在一个方法的多次对Redis增删该查中，始终使用同一个连接。
+        -->
+        <!--<property name="enableTransactionSupport" value="true"/>-->
+        <!--在Spring中@Transactional 也是可以进行事物控制的。-->
+        <!-- 缓存管理器: 使用redis 当做缓存 -->
+        <!--<bean id="cacheManager" class="org.springframework.data.redis.cache.RedisCacheManager">-->
+        <!--<constructor-arg ref="redisTemplate"/>-->
+        <!--</bean>-->
+        <!-- cache配置 -->
+        <!-- E Redis 配置-->
+    </bean>
+    <bean id="redisUtil" class="com.jnshu.util.RedisUtil" >
+        <property name="redisTemplate" ref="redisTemplate" />
+    </bean>
+    <bean id="SMSUtil" class="com.jnshu.util.SMSUtil">
+        <property name="account" value="8a216da86488ce480164a2f405400d52"/>
+        <property name="token" value="d2adcf4c1ecb439694d09b9f03e6cf1f"/>
+        <property name="appId" value="8a216da86488ce480164a2f405960d59" />
+    </bean>
+    <bean id="SendMailSDK" class="com.jnshu.util.SendMailSDK">
+         <property name="apiUser" value="zpyt123_test_ygtrxx"/>
+        <property name="apiKey" value="2j2CTHEJiIFzltaG"/>
+        <property name="apiUrl" value="http://api.sendcloud.net/apiv2/mail/send"/>
+    </bean>
+    <bean id="AliyunOSSAPI" class="com.jnshu.util.AliyunOSSAPI">
+        <property name="accessKeyId" value="LTAIl6uehO2O3P4s"/>
+        <property name="accessKeySecret" value="J5Vz3K0GklceOZ3iflNmV6XgYHE7cE"/>
+        <property name="endpoint" value="oss-cn-beijing.aliyuncs.com"/>
+        <property name="bucketName" value="zpyt123"/>
+    </bean>
+
+    <bean id="LoginRMI" class="org.springframework.remoting.rmi.RmiServiceExporter">
+        <!--设置RMI服务名，为客户端会依据此服务名来获取远程接口实现类-->
+        <property name="serviceName" value="LoginRMI" />
+        <!--将远程接口实现类对象设置到RMI服务中-->
+        <property name="service" ref="loginRmiImpl" />
+        <!--将远程接口设置为RMI服务接口-->
+        <property name="serviceInterface" value="com.jnshu.service.LoginRMI" />
+        <!--为RMI服务端远程对象注册表设置端口号-->
+        <property name="registryPort" value="9999" />
+        <!--设置通信端口号-->
+        <property name="servicePort" value="7879" />
+    </bean>
+    <bean id="LoginService" class="org.springframework.remoting.rmi.RmiServiceExporter">
+        <!--设置RMI服务名，为客户端会依据此服务名来获取远程接口实现类-->
+        <property name="serviceName" value="LoginService" />
+        <!--将远程接口实现类对象设置到RMI服务中-->
+        <property name="service" ref="loginServiceImpl" />
+        <!--将远程接口设置为RMI服务接口-->
+        <property name="serviceInterface" value="com.jnshu.service.LoginService" />
+        <!--为RMI服务端远程对象注册表设置端口号-->
+        <property name="registryPort" value="9999" />
+        <!--设置通信端口号-->
+        <property name="servicePort" value="7879" />
+    </bean>
+    <bean id="UserService" class="org.springframework.remoting.rmi.RmiServiceExporter">
+        <!--设置RMI服务名，为客户端会依据此服务名来获取远程接口实现类-->
+        <property name="serviceName" value="UserService" />
+        <!--将远程接口实现类对象设置到RMI服务中-->
+        <property name="service" ref="userServiceImpl" />
+        <!--将远程接口设置为RMI服务接口-->
+        <property name="serviceInterface" value="com.jnshu.service.UserService" />
+        <!--为RMI服务端远程对象注册表设置端口号-->
+        <property name="registryPort" value="9999" />
+        <!--设置通信端口号-->
+        <property name="servicePort" value="7879" />
+    </bean>
+</beans>
+
+

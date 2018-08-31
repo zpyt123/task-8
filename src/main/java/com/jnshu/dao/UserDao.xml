@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.jnshu.dao.UserDao">
+    <select id="getId" resultType="Integer">
+        SELECT * from  tb_student
+    </select>
+    <select id="getGoodUser"  resultType="com.jnshu.model.User">
+        select * from tb_student where isGood= true
+    </select>
+    <select id="countStudent"  resultType="Integer">
+        select COUNT(id) from tb_student
+    </select>
+    <select id="countWork"  resultType="Integer">
+        select COUNT(isWork) from tb_student where isWork = true
+    </select>
+    <select id="findIdUser"  resultType="Integer">
+        SELECT * from tb_student where id= #{id}
+    </select>
+    <select id="findListUser" resultType="com.jnshu.model.User">
+        SELECT * from tb_student
+    </select>
+    <insert id="insertUser" parameterType="com.jnshu.model.User">
+        insert into tb_student (stuName,stuIntroduction,isGood,isWork,creat_at,update_at) VALUES (#{stuName},#{stuIntroduction},#{isGood},#{creat_at},#{update_at})
+    </insert>
+    <delete id="deleteUser" parameterType="Integer">
+        delete from tb_student where id =#{id}
+    </delete>
+    <update id="updateUser"  parameterType="com.jnshu.model.User" >
+        update User set stuName=#{stuName},stuIntroduction=#{stuIntroduction},isGood=#{isGood},isWork=#{isWork}
+        update_at=#{update_at} where id =#{id}
+    </update>
+</mapper>

@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<composite
+        xmlns="http://docs.oasis-open.org/ns/opencsa/sca/200912"
+        xmlns:tuscany="http://tuscany.apache.org/xmlns/sca/1.1"
+        targetNamespace="http://"
+        name="Calculator">
+
+    <!-- 元件 SCA基本组成部分 -->
+    <component name="AddComponent">
+        <!-- 这里会标红 查看http://docs.oasis-open.org/ns/opencsa/sca/200912 并无此参数..-->
+        <implementation.java />
+    </component>
+    <component name="SubtractComponent">
+        <implementation.java />
+    </component>
+    <component name="MultiplyComponent">
+        <implementation.java />
+    </component>
+    <component name="DivideComponent">
+        <implementation.java />
+    </component>
+
+
+    <!-- 定义 计算器服务组成部分   Component组成-->
+    <component name="CalculatorServiceComponent">
+        <implementation.java />
+
+        <service name="Calculator">//这里必须和你的实现类一个名字
+            <interface.java interface="service.CalculatorInterface"/>//暴露的接口
+            <!--绑定RMI服务-->
+            <tuscany:binding.rmi uri="rmi://127.0.0.1:8888/CalculatorRMIService"/>
+        </service>
+        <!-- 引入元件 -->
+        <reference name="addInterface" target="AddComponent"/>
+        <reference name="subInterface" target="SubtractComponent"/>
+        <reference name="multiInterface" target="MultiplyComponent"/>
+        <reference name="diviInterface" target="DivideComponent"/>
+    </component>
+</composite>
